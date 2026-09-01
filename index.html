@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="食事記録">
+<meta name="theme-color" content="#EDEFEA">
+<title>食事記録</title>
+<style>
+:root{
+  --ink:#1B211C;
+  --ink2:#5A645B;
+  --ink3:#8A948B;
+  --paper:#EDEFEA;
+  --card:#FFFFFF;
+  --line:#D3D8CF;
+  --line2:#E4E8E0;
+  --accent:#3D6B4E;
+  --warn:#96721A;
+  --over:#8A3B32;
+  --sans:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+  --serif:"Hiragino Mincho ProN","Yu Mincho",YuMincho,serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--paper);color:var(--ink);
+  font-family:var(--sans);font-size:15px;line-height:1.6;
+  font-feature-settings:"palt";
+  -webkit-text-size-adjust:100%;
+  padding-bottom:calc(64px + env(safe-area-inset-bottom));
+}
+.wrap{max-width:520px;margin:0 auto;padding:0 14px}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3{font-family:var(--serif);font-weight:600;margin:0}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---- header ---- */
+header{
+  position:sticky;top:0;z-index:20;background:var(--paper);
+  border-bottom:1px solid var(--line);
+  padding-top:env(safe-area-inset-top);
+}
+.hbar{display:flex;align-items:baseline;gap:10px;padding:12px 0 11px}
+.hbar h1{font-size:21px;letter-spacing:.02em}
+.hbar .sub{font-size:12px;color:var(--ink3);margin-left:auto}
+.navbtn{
+  background:none;border:1px solid var(--line);border-radius:6px;
+  width:32px;height:30px;line-height:1;color:var(--ink2);
+}
+.navbtn:active{background:var(--line2)}
+
+/* ---- calendar ---- */
+.dow{display:grid;grid-template-columns:repeat(7,1fr);margin:14px 0 6px}
+.dow div{text-align:center;font-size:11px;color:var(--ink3)}
+.dow div:first-child{color:#96565b}
+.dow div:last-child{color:#4a6b8a}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cell{
+  background:var(--card);border:1px solid var(--line2);border-radius:5px;
+  aspect-ratio:1/1.18;padding:4px 4px 3px;display:flex;flex-direction:column;
+  align-items:stretch;text-align:left;position:relative;overflow:hidden;
+}
+.cell.blank{background:transparent;border-color:transparent}
+.cell.today{border-color:var(--accent);border-width:1.5px}
+.cell .d{font-size:12px;color:var(--ink2);line-height:1.2}
+.cell.sun .d{color:#96565b}
+.cell.sat .d{color:#4a6b8a}
+.cell .k{font-size:11px;color:var(--ink);margin-top:auto;line-height:1.2}
+.cell .k.none{color:var(--ink3)}
+.bars{display:flex;flex-direction:column;gap:2px;margin-top:3px}
+.bar{height:2.5px;background:var(--line2);border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+.bar i.over{background:var(--over)}
+.dot{position:absolute;top:4px;right:4px;width:5px;height:5px;border-radius:50%;background:var(--accent);opacity:.55}
+.legend{display:flex;gap:14px;font-size:11px;color:var(--ink3);margin:10px 2px 0}
+.legend span{display:flex;align-items:center;gap:5px}
+.legend i{width:14px;height:2.5px;background:var(--accent);border-radius:2px}
+.legend i.b2{opacity:.45}
+
+/* ---- generic card ---- */
+.card{background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:13px 14px;margin:10px 0}
+.muted{color:var(--ink3);font-size:13px}
+.empty{text-align:center;color:var(--ink3);font-size:13px;padding:34px 16px;line-height:1.9}
+
+/* ---- buttons ---- */
+.btn{
+  background:var(--accent);color:#fff;border:none;border-radius:7px;
+  padding:11px 16px;font-size:15px;font-weight:600;width:100%;
+}
+.btn:active{opacity:.82}
+.btn[disabled]{opacity:.45}
+.btn.ghost{background:none;color:var(--accent);border:1px solid var(--line)}
+.btn.small{padding:7px 12px;font-size:13px;width:auto;font-weight:500}
+.btn.danger{color:var(--over);border-color:var(--line)}
+.row{display:flex;gap:8px;align-items:center}
+
+/* ---- forms ---- */
+label.f{display:block;font-size:12px;color:var(--ink2);margin:12px 0 4px}
+input[type=text],input[type=number],input[type=date],input[type=time],textarea,select{
+  width:100%;font:inherit;font-size:16px;padding:9px 10px;
+  border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);
+}
+textarea{resize:vertical;min-height:56px;line-height:1.6}
+
+/* ---- sheet ---- */
+.sheet{position:fixed;inset:0;z-index:40;display:none}
+.sheet.on{display:block}
+.scrim{position:absolute;inset:0;background:rgba(20,26,21,.42)}
+.panel{
+  position:absolute;left:0;right:0;bottom:0;top:34px;background:var(--paper);
+  border-radius:14px 14px 0 0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding-bottom:calc(28px + env(safe-area-inset-bottom));
+}
+.panel .inner{max-width:520px;margin:0 auto;padding:0 14px 20px}
+.phead{
+  position:sticky;top:0;background:var(--paper);z-index:2;
+  display:flex;align-items:baseline;gap:10px;padding:15px 0 11px;
+  border-bottom:1px solid var(--line);margin-bottom:4px;
+}
+.phead h2{font-size:18px}
+.phead .close{margin-left:auto;background:none;border:none;color:var(--ink2);font-size:14px;padding:4px}
+
+/* ---- meal card ---- */
+.meal{display:flex;gap:11px;background:var(--card);border:1px solid var(--line2);border-radius:8px;padding:10px;margin:9px 0}
+.meal img{width:74px;height:74px;object-fit:cover;border-radius:5px;background:var(--line2);flex:none}
+.meal .body{min-width:0;flex:1}
+.meal .t{font-size:12px;color:var(--ink3)}
+.meal .names{font-size:14px;margin:1px 0 3px;overflow-wrap:anywhere}
+.meal .nums{font-size:12px;color:var(--ink2)}
+.meal .note{font-size:12px;color:var(--ink2);margin-top:4px;padding-left:8px;border-left:2px solid var(--line)}
+.meal .st{font-size:12px;color:var(--warn)}
+.meal .st.err{color:var(--over)}
+.tot{display:flex;flex-wrap:wrap;gap:2px 18px;font-size:13px;color:var(--ink2)}
+.tot b{color:var(--ink);font-weight:600}
+
+/* ---- report ---- */
+.seg{display:flex;gap:0;border:1px solid var(--line);border-radius:7px;overflow:hidden;margin:12px 0}
+.seg button{flex:1;background:none;border:none;padding:8px 4px;font-size:13px;color:var(--ink2);border-right:1px solid var(--line)}
+.seg button:last-child{border-right:none}
+.seg button.on{background:var(--accent);color:#fff}
+.rep{font-size:14px;line-height:1.85}
+.rep h3{font-size:15px;margin:16px 0 5px;font-family:var(--sans);font-weight:700}
+.rep h3:first-child{margin-top:0}
+.rep ul{margin:5px 0;padding-left:1.2em}
+.rep li{margin:3px 0}
+.rep p{margin:6px 0}
+.spark{width:100%;height:44px;display:block;margin:4px 0 2px}
+.sparkhead{display:flex;justify-content:space-between;font-size:11px;color:var(--ink3);margin-top:9px}
+
+/* ---- health ---- */
+.hitem{display:flex;align-items:baseline;gap:10px;padding:9px 0;border-bottom:1px solid var(--line2)}
+.hitem:last-child{border-bottom:none}
+.hitem .n{flex:1;font-size:14px}
+.hitem .v{font-size:15px;font-weight:600}
+.hitem .u{font-size:11px;color:var(--ink3)}
+.hitem .dt{font-size:11px;color:var(--ink3);width:74px;text-align:right}
+.hitem .del{background:none;border:none;color:var(--ink3);font-size:16px;padding:0 2px;line-height:1}
+
+/* ---- tabbar ---- */
+.tabbar{
+  position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(237,239,234,.94);
+  backdrop-filter:saturate(160%) blur(12px);border-top:1px solid var(--line);
+  display:flex;padding-bottom:env(safe-area-inset-bottom);
+}
+.tabbar button{flex:1;background:none;border:none;padding:9px 0 8px;font-size:11px;color:var(--ink3);line-height:1.5}
+.tabbar button .ic{display:block;font-size:17px;line-height:1.1}
+.tabbar button.on{color:var(--accent)}
+
+.toast{
+  position:fixed;left:50%;transform:translateX(-50%);bottom:calc(78px + env(safe-area-inset-bottom));
+  background:var(--ink);color:#fff;font-size:13px;padding:9px 16px;border-radius:20px;z-index:60;
+  max-width:90%;text-align:center;opacity:0;pointer-events:none;transition:opacity .18s;
+}
+.toast.on{opacity:.95}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap hbar" id="hbar"></div>
+</header>
+
+<main class="wrap" id="main"></main>
+
+<nav class="tabbar" id="tabbar">
+  <button data-tab="cal" class="on"><span class="ic">▦</span>記録</button>
+  <button data-tab="rep"><span class="ic">◐</span>分析</button>
+  <button data-tab="hth"><span class="ic">✚</span>健診</button>
+  <button data-tab="set"><span class="ic">⚙</span>設定</button>
+</nav>
+
+<div class="sheet" id="sheet">
+  <div class="scrim" data-close></div>
+  <div class="panel"><div class="inner" id="sheetInner"></div></div>
+</div>
+
+<input type="file" id="picker" accept="image/*" multiple class="hide">
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* =========================================================
+   個人用・食事記録アプリ
+   - データはすべて端末内 IndexedDB。コードに個人データは持たない。
+   - APIキー・健診値・写真はすべて実行時入力 → 端末内保存のみ。
+   - 写真解析のときだけ画像が Claude API に送信される。
+   ========================================================= */
+
+const PROMPT_VERSION = 1;
+
+const DEFAULTS = {
+  mealModel:   "claude-sonnet-5",
+  reportModel: "claude-opus-5",
+  target: { kcal:2200, salt_g:7.5, veg_g:350, fiber_g:21, protein_g:65 }
+};
+
+/* ---------- IndexedDB ---------- */
+const DB = (()=>{
+  let dbp = null;
+  function open(){
+    if(dbp) return dbp;
+    dbp = new Promise((res,rej)=>{
+      const r = indexedDB.open("mealdb", 1);
+      r.onupgradeneeded = e=>{
+        const db = e.target.result;
+        if(!db.objectStoreNames.contains("meals")){
+          const s = db.createObjectStore("meals",{keyPath:"id"});
+          s.createIndex("date","date");
+        }
+        if(!db.objectStoreNames.contains("health"))   db.createObjectStore("health",{keyPath:"id"});
+        if(!db.objectStoreNames.contains("reports"))  db.createObjectStore("reports",{keyPath:"id"});
+        if(!db.objectStoreNames.contains("settings")) db.createObjectStore("settings",{keyPath:"key"});
+      };
+      r.onsuccess = ()=>res(r.result);
+      r.onerror   = ()=>rej(r.error);
+    });
+    return dbp;
+  }
+  const tx = async (store,mode,fn)=>{
+    const db = await open();
+    return new Promise((res,rej)=>{
+      const t = db.transaction(store,mode);
+      const s = t.objectStore(store);
+      let out;
+      try{ out = fn(s); }catch(e){ rej(e); return; }
+      t.oncomplete = ()=>res(out && out.result !== undefined ? out.result : out);
+      t.onerror    = ()=>rej(t.error);
+    });
+  };
+  return {
+    put:(store,val)=>tx(store,"readwrite",s=>s.put(val)),
+    del:(store,key)=>tx(store,"readwrite",s=>s.delete(key)),
+    get:(store,key)=>tx(store,"readonly", s=>s.get(key)),
+    all:(store)   =>tx(store,"readonly", s=>s.getAll()),
+    byDate:(d)    =>tx("meals","readonly",s=>s.index("date").getAll(d)),
+    clear:(store) =>tx(store,"readwrite",s=>s.clear())
+  };
+})();
+
+let SET = {};
+async function loadSettings(){
+  const rows = await DB.all("settings");
+  SET = {};
+  rows.forEach(r=>SET[r.key]=r.value);
+  SET.mealModel   = SET.mealModel   || DEFAULTS.mealModel;
+  SET.reportModel = SET.reportModel || DEFAULTS.reportModel;
+  SET.target      = Object.assign({}, DEFAULTS.target, SET.target||{});
+}
+const saveSetting = (k,v)=>{ SET[k]=v; return DB.put("settings",{key:k,value:v}); };
+
+/* ---------- utils ---------- */
+const $  = s=>document.querySelector(s);
+const uid = ()=> Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const pad = n=>String(n).padStart(2,"0");
+const ymd = d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const esc = s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const todayStr = ()=>ymd(new Date());
+
+function toast(msg,ms=2400){
+  const t=$("#toast"); t.textContent=msg; t.classList.add("on");
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("on"),ms);
+}
+function jpDate(s){
+  const [y,m,d]=s.split("-").map(Number);
+  const w="日月火水木金土"[new Date(y,m-1,d).getDay()];
+  return `${m}月${d}日(${w})`;
+}
+/* ISO週（月曜始まり） */
+function isoWeek(dateStr){
+  const [y,m,d]=dateStr.split("-").map(Number);
+  const t=new Date(Date.UTC(y,m-1,d));
+  const day=(t.getUTCDay()+6)%7;
+  t.setUTCDate(t.getUTCDate()-day+3);
+  const first=new Date(Date.UTC(t.getUTCFullYear(),0,4));
+  const week=1+Math.round(((t-first)/86400000-3+((first.getUTCDay()+6)%7))/7);
+  return {year:t.getUTCFullYear(),week};
+}
+function weekRange(y,w){
+  const first=new Date(Date.UTC(y,0,4));
+  const start=new Date(first);
+  start.setUTCDate(first.getUTCDate()-((first.getUTCDay()+6)%7)+(w-1)*7);
+  const days=[];
+  for(let i=0;i<7;i++){const d=new Date(start);d.setUTCDate(start.getUTCDate()+i);
+    days.push(`${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}`);}
+  return days;
+}
+
+/* ---------- 画像 ---------- */
+async function resizeToBlob(file,max,q=0.82){
+  const bmp = await createImageBitmap(file);
+  const sc  = Math.min(1, max/Math.max(bmp.width,bmp.height));
+  const w = Math.max(1,Math.round(bmp.width*sc)), h = Math.max(1,Math.round(bmp.height*sc));
+  const c = document.createElement("canvas"); c.width=w; c.height=h;
+  c.getContext("2d").drawImage(bmp,0,0,w,h);
+  if(bmp.close) bmp.close();
+  return await new Promise(r=>c.toBlob(r,"image/jpeg",q));
+}
+const blobToB64 = b=>new Promise((res,rej)=>{
+  const fr=new FileReader();
+  fr.onload=()=>res(String(fr.result).split(",")[1]);
+  fr.onerror=rej; fr.readAsDataURL(b);
+});
+
+/* 撮影日時を EXIF から取得（取れなければファイル更新日 → 現在時刻） */
+async function exifDateTime(file){
+  try{
+    const dv = new DataView(await file.slice(0,192*1024).arrayBuffer());
+    if(dv.getUint16(0)!==0xFFD8) return null;
+    let off=2;
+    while(off+4 < dv.byteLength){
+      if(dv.getUint8(off)!==0xFF) break;
+      const marker=dv.getUint8(off+1), size=dv.getUint16(off+2);
+      if(marker===0xE1 && dv.getUint32(off+4)===0x45786966){
+        const tiff=off+10, little=dv.getUint16(tiff)===0x4949;
+        const g16=p=>dv.getUint16(p,little), g32=p=>dv.getUint32(p,little);
+        const ifd0=tiff+g32(tiff+4);
+        const readTag=(base,tag)=>{
+          const n=g16(base);
+          for(let i=0;i<n;i++){
+            const e=base+2+i*12;
+            if(g16(e)===tag){
+              const cnt=g32(e+4), vo=tiff+g32(e+8);
+              let s=""; for(let k=0;k<cnt-1;k++) s+=String.fromCharCode(dv.getUint8(vo+k));
+              return s;
+            }
+          }
+          return null;
+        };
+        let exifPtr=null;
+        const n=g16(ifd0);
+        for(let i=0;i<n;i++){ const e=ifd0+2+i*12; if(g16(e)===0x8769) exifPtr=tiff+g32(e+8); }
+        let s = exifPtr ? (readTag(exifPtr,0x9003)||readTag(exifPtr,0x9004)) : null;
+        if(!s) s = readTag(ifd0,0x0132);
+        if(s && /^\d{4}:\d{2}:\d{2} \d{2}:\d{2}/.test(s)){
+          const [dpart,tpart]=s.split(" ");
+          return {date:dpart.replace(/:/g,"-"), time:tpart.slice(0,5)};
+        }
+        return null;
+      }
+      off += 2+size;
+    }
+  }catch(e){}
+  return null;
+}
+
+/* ---------- Claude API ---------- */
+async function callClaude({model,max_tokens,system,content}){
+  const key = SET.apiKey;
+  if(!key) throw new Error("APIキーが未設定です。設定タブで登録してください。");
+  let res;
+  try{
+    res = await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{
+        "content-type":"application/json",
+        "x-api-key":key,
+        "anthropic-version":"2023-06-01",
+        "anthropic-dangerous-direct-browser-access":"true"
+      },
+      body: JSON.stringify({model,max_tokens,system,messages:[{role:"user",content}]})
+    });
+  }catch(e){
+    throw new Error("通信に失敗しました。電波と接続を確認してください。");
+  }
+  if(!res.ok){
+    const body = await res.text().catch(()=> "");
+    if(res.status===401) throw new Error("APIキーが受け付けられませんでした。設定で確認してください。");
+    if(res.status===404) throw new Error(`モデル「${model}」が使えません。設定でモデルIDを更新してください。`);
+    if(res.status===429) throw new Error("レート上限に達しました。少し待って再試行してください。");
+    throw new Error(`APIエラー ${res.status}: ${body.slice(0,140)}`);
+  }
+  const data = await res.json();
+  return (data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n");
+}
+function parseJSON(text){
+  const t = text.replace(/```json|```/g,"").trim();
+  const a = t.indexOf("{"), b = t.lastIndexOf("}");
+  return JSON.parse(a>=0 ? t.slice(a,b+1) : t);
+}
+
+/* ---------- 食事の解析 ---------- */
+const MEAL_SYSTEM = `あなたは管理栄養士です。食事の写真から内容と栄養を推定し、JSONだけを返します。
+
+規則:
+- 前置き・説明・コードフェンスを一切書かない。JSONオブジェクトのみを出力する。
+- 日本の一般的な家庭料理・外食の標準的な盛り付け量を基準に推定する。
+- 利用者のメモがある場合は必ず推定に反映する（食べ残し、追加、調味料など）。
+- 推定に用いた仮定を assumptions に日本語で簡潔に書く。
+- 確信が持てない場合も必ず数値を出し、confidence を low にする。
+
+出力形式:
+{"items":[{"name":"料理名","portion_g":数値,"confidence":0.0〜1.0}],
+ "estimate":{"kcal":数値,"protein_g":数値,"fat_g":数値,"carb_g":数値,"salt_g":数値,"fiber_g":数値,"veg_g":数値},
+ "assumptions":"文字列","confidence":"low|medium|high"}`;
+
+async function analyzeMeal(rec, blob){
+  const b64 = await blobToB64(blob);
+  const note = (rec.note||"").trim();
+  const text = `この食事の写真を推定してください。${note ? `\n\n利用者のメモ: ${note}` : ""}`;
+  const out = await callClaude({
+    model: SET.mealModel, max_tokens: 900, system: MEAL_SYSTEM,
+    content:[
+      {type:"image",source:{type:"base64",media_type:"image/jpeg",data:b64}},
+      {type:"text",text}
+    ]
+  });
+  const j = parseJSON(out);
+  return {
+    items: Array.isArray(j.items)?j.items:[],
+    estimate: j.estimate||{},
+    assumptions: j.assumptions||"",
+    confidence: j.confidence||"low",
+    model: SET.mealModel,
+    prompt_version: PROMPT_VERSION,
+    status:"done"
+  };
+}
+
+/* ---------- 集計 ---------- */
+const FIELDS = ["kcal","protein_g","fat_g","carb_g","salt_g","fiber_g","veg_g"];
+function sumEstimates(meals){
+  const t = {}; FIELDS.forEach(f=>t[f]=0);
+  meals.forEach(m=>{ if(m.status==="done") FIELDS.forEach(f=>t[f]+=Number(m.estimate?.[f])||0); });
+  FIELDS.forEach(f=>t[f]=Math.round(t[f]*10)/10);
+  return t;
+}
+async function dailyTotals(dates){
+  const out=[];
+  for(const d of dates){
+    const meals = await DB.byDate(d);
+    const done = meals.filter(m=>m.status==="done");
+    if(!done.length) continue;
+    const t = sumEstimates(done);
+    const notes = meals.map(m=>(m.note||"").trim()).filter(Boolean);
+    out.push({date:d, meals:done.length, ...t, ...(notes.length?{notes}:{}) });
+  }
+  return out;
+}
+
+/* =========================================================
+   画面
+   ========================================================= */
+const S = { tab:"cal", y:new Date().getFullYear(), m:new Date().getMonth(), repMode:"week", repOffset:0 };
+
+function setTab(t){
+  S.tab=t;
+  document.querySelectorAll("#tabbar button").forEach(b=>b.classList.toggle("on",b.dataset.tab===t));
+  render();
+}
+document.querySelectorAll("#tabbar button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+
+function render(){
+  ({cal:viewCalendar, rep:viewReport, hth:viewHealth, set:viewSettings})[S.tab]();
+}
+
+/* ---------- 記録（カレンダー） ---------- */
+async function viewCalendar(){
+  const y=S.y, m=S.m;
+  $("#hbar").innerHTML = `
+    <h1 class="num">${y}年${m+1}月</h1>
+    <div class="row" style="margin-left:auto;gap:6px">
+      <button class="navbtn" id="pm">‹</button>
+      <button class="navbtn" id="tm" style="width:auto;padding:0 9px;font-size:12px">今月</button>
+      <button class="navbtn" id="nm">›</button>
+    </div>`;
+  $("#pm").onclick=()=>{ if(--S.m<0){S.m=11;S.y--;} render(); };
+  $("#nm").onclick=()=>{ if(++S.m>11){S.m=0;S.y++;} render(); };
+  $("#tm").onclick=()=>{ const d=new Date(); S.y=d.getFullYear(); S.m=d.getMonth(); render(); };
+
+  const first=new Date(y,m,1), lead=first.getDay(), days=new Date(y,m+1,0).getDate();
+  const all = await DB.all("meals");
+  const byDate = {};
+  all.forEach(r=>{ (byDate[r.date] = byDate[r.date]||[]).push(r); });
+
+  const tg = SET.target;
+  let cells = "";
+  for(let i=0;i<lead;i++) cells += `<div class="cell blank"></div>`;
+  for(let d=1; d<=days; d++){
+    const ds = `${y}-${pad(m+1)}-${pad(d)}`;
+    const dow = new Date(y,m,d).getDay();
+    const rows = byDate[ds]||[];
+    const done = rows.filter(r=>r.status==="done");
+    const t = sumEstimates(done);
+    const cls = ["cell", dow===0?"sun":"", dow===6?"sat":"", ds===todayStr()?"today":""].join(" ");
+    let inner = `<div class="d num">${d}</div>`;
+    if(rows.length){
+      inner += `<div class="dot"></div>`;
+      if(done.length){
+        const pk = Math.min(1.6, t.kcal/tg.kcal), ps = Math.min(1.6, t.salt_g/tg.salt_g);
+        inner += `<div class="k num">${Math.round(t.kcal)}</div>
+          <div class="bars">
+            <div class="bar"><i class="${pk>1?"over":""}" style="width:${Math.min(100,pk*100)}%"></i></div>
+            <div class="bar"><i class="${ps>1?"over":""}" style="width:${Math.min(100,ps*100)}%;opacity:.55"></i></div>
+          </div>`;
+      }else{
+        inner += `<div class="k none">未解析</div>`;
+      }
+    }
+    cells += `<button class="${cls}" data-date="${ds}">${inner}</button>`;
+  }
+
+  $("#main").innerHTML = `
+    <div class="dow"><div>日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div>土</div></div>
+    <div class="grid" id="grid">${cells}</div>
+    <div class="legend">
+      <span><i></i>エネルギー</span>
+      <span><i class="b2"></i>食塩</span>
+      <span style="color:var(--ink3)">目安に対する割合</span>
+    </div>
+    <p class="muted" style="margin:16px 2px 0">日付をタップして写真を追加します。写真の原本は端末の写真アプリに残り、このアプリには縮小版だけが保存されます。</p>`;
+
+  $("#grid").querySelectorAll("[data-date]").forEach(b=>b.onclick=()=>openDay(b.dataset.date));
+}
+
+/* ---------- 日別シート ---------- */
+let CUR_DATE = null;
+function closeSheet(){ $("#sheet").classList.remove("on"); document.body.style.overflow=""; }
+$("#sheet").querySelector("[data-close]").onclick = ()=>{ closeSheet(); if(S.tab==="cal") render(); };
+
+async function openDay(date){
+  CUR_DATE = date;
+  $("#sheet").classList.add("on");
+  document.body.style.overflow="hidden";
+  await renderDay();
+}
+async function renderDay(){
+  const date = CUR_DATE;
+  const meals = (await DB.byDate(date)).sort((a,b)=>(a.time||"").localeCompare(b.time||""));
+  const done = meals.filter(m=>m.status==="done");
+  const t = sumEstimates(done);
+  const tg = SET.target;
+
+  const summary = done.length ? `
+    <div class="card">
+      <div class="tot">
+        <span><b class="num">${Math.round(t.kcal)}</b> kcal / ${tg.kcal}</span>
+        <span>食塩 <b class="num">${t.salt_g}</b> g / ${tg.salt_g}</span>
+        <span>たんぱく質 <b class="num">${t.protein_g}</b> g</span>
+        <span>野菜 <b class="num">${Math.round(t.veg_g)}</b> g / ${tg.veg_g}</span>
+        <span>食物繊維 <b class="num">${t.fiber_g}</b> g</span>
+        <span>脂質 <b class="num">${t.fat_g}</b> g</span>
+      </div>
+    </div>` : "";
+
+  const list = meals.length ? meals.map(m=>{
+    const names = (m.items||[]).map(i=>i.name).join("、") || "—";
+    let body;
+    if(m.status==="done"){
+      const e=m.estimate||{};
+      body = `<div class="names">${esc(names)}</div>
+        <div class="nums num">${Math.round(e.kcal||0)} kcal ・ 食塩 ${e.salt_g||0} g ・ P ${Math.round(e.protein_g||0)} / F ${Math.round(e.fat_g||0)} / C ${Math.round(e.carb_g||0)} g</div>`;
+    }else if(m.status==="error"){
+      body = `<div class="st err">解析に失敗しました</div><div class="nums">${esc(m.error||"")}</div>`;
+    }else{
+      body = `<div class="st">解析待ち</div>`;
+    }
+    return `<div class="meal">
+      <img data-thumb="${m.id}" alt="">
+      <div class="body">
+        <div class="t num">${esc(m.time||"")}</div>
+        ${body}
+        ${m.note?`<div class="note">${esc(m.note)}</div>`:""}
+        <div class="row" style="margin-top:7px;gap:6px">
+          <button class="btn ghost small" data-edit="${m.id}">メモ・時刻</button>
+          ${m.status!=="done"?`<button class="btn small" data-run="${m.id}">解析する</button>`:""}
+        </div>
+      </div>
+    </div>`;
+  }).join("") : `<div class="empty">この日の記録はまだありません。<br>写真を追加すると解析が始まります。</div>`;
+
+  $("#sheetInner").innerHTML = `
+    <div class="phead">
+      <h2>${jpDate(date)}</h2>
+      <button class="close" data-x>閉じる</button>
+    </div>
+    ${summary}
+    ${list}
+    <button class="btn" id="addPhoto" style="margin-top:14px">写真を追加</button>
+    <p class="muted" style="margin-top:10px">推定値には2〜3割の誤差があります。絶対値ではなく傾向の変化を見る目安として使ってください。</p>`;
+
+  $("#sheetInner").querySelector("[data-x]").onclick=()=>{ closeSheet(); if(S.tab==="cal") render(); };
+  $("#addPhoto").onclick=()=>pickPhotos(date);
+  $("#sheetInner").querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>editMeal(b.dataset.edit));
+  $("#sheetInner").querySelectorAll("[data-run]").forEach(b=>b.onclick=()=>runAnalysis(b.dataset.run));
+
+  meals.forEach(m=>{
+    const img = $("#sheetInner").querySelector(`[data-thumb="${m.id}"]`);
+    if(img && m.thumb) img.src = URL.createObjectURL(m.thumb);
+  });
+}
+
+/* ---------- 写真追加 ---------- */
+function pickPhotos(date){
+  const p = $("#picker");
+  p.value = "";
+  p.onchange = async ()=>{
+    const files = Array.from(p.files||[]);
+    if(!files.length) return;
+    toast(`${files.length}枚を取り込んでいます…`, 60000);
+    const ids=[];
+    for(const f of files){
+      try{
+        const ex   = await exifDateTime(f);
+        const when = ex || (()=>{ const d=new Date(f.lastModified||Date.now()); return {date:ymd(d),time:`${pad(d.getHours())}:${pad(d.getMinutes())}`}; })();
+        const thumb = await resizeToBlob(f, 512, 0.8);
+        const rec = {
+          id: uid(), date, time: when.time, ts: Date.now(),
+          note:"", thumb, items:[], estimate:{}, assumptions:"", confidence:null,
+          model:null, prompt_version:null, status:"pending"
+        };
+        await DB.put("meals", rec);
+        ids.push({id:rec.id, file:f});
+      }catch(e){ console.error(e); }
+    }
+    await renderDay();
+    toast("解析しています…", 60000);
+    for(const {id,file} of ids){
+      try{
+        const big = await resizeToBlob(file, 1024, 0.85);
+        const rec = await DB.get("meals", id);
+        const res = await analyzeMeal(rec, big);   // 送信後、1024px版は破棄（保存しない）
+        await DB.put("meals", Object.assign(rec, res));
+      }catch(e){
+        const rec = await DB.get("meals", id);
+        await DB.put("meals", Object.assign(rec,{status:"error", error:e.message}));
+      }
+      await renderDay();
+    }
+    toast("保存しました");
+  };
+  p.click();
+}
+
+/* ---------- メモ編集 → 再解析 ---------- */
+async function editMeal(id){
+  const m = await DB.get("meals", id);
+  const inner = $("#sheetInner");
+  inner.innerHTML = `
+    <div class="phead"><h2>記録を編集</h2><button class="close" data-back>戻る</button></div>
+    <div class="card">
+      <img id="ev" style="width:100%;max-height:260px;object-fit:contain;border-radius:6px;background:var(--line2)" alt="">
+      <label class="f">時刻</label>
+      <input type="time" id="et" value="${esc(m.time||"")}">
+      <label class="f">日付</label>
+      <input type="date" id="ed" value="${esc(m.date)}">
+      <label class="f">メモ（食べ残し・追加・味の濃さなど。解析に反映されます）</label>
+      <textarea id="en" placeholder="例：みそ汁は半分残した／ご飯は少なめ">${esc(m.note||"")}</textarea>
+      <div class="row" style="margin-top:14px;gap:8px">
+        <button class="btn" id="esave">保存して再解析</button>
+      </div>
+      <div class="row" style="margin-top:8px;gap:8px">
+        <button class="btn ghost small" id="esaveonly">保存だけする</button>
+        <button class="btn ghost small danger" id="edel" style="margin-left:auto">削除</button>
+      </div>
+      ${m.assumptions?`<p class="muted" style="margin-top:14px">推定の前提: ${esc(m.assumptions)}</p>`:""}
+      ${m.model?`<p class="muted">解析: ${esc(m.model)} / prompt v${m.prompt_version}</p>`:""}
+    </div>`;
+  if(m.thumb) $("#ev").src = URL.createObjectURL(m.thumb);
+  inner.querySelector("[data-back]").onclick = renderDay;
+
+  const collect = ()=>({ time:$("#et").value, date:$("#ed").value, note:$("#en").value.trim() });
+  $("#esaveonly").onclick = async ()=>{
+    await DB.put("meals", Object.assign(m, collect()));
+    CUR_DATE = m.date; await renderDay(); toast("保存しました");
+  };
+  $("#esave").onclick = async ()=>{
+    const upd = Object.assign(m, collect());
+    if(!upd.thumb){ toast("画像がないため再解析できません"); return; }
+    $("#esave").disabled = true; $("#esave").textContent = "解析中…";
+    try{
+      const res = await analyzeMeal(upd, upd.thumb);  // 縮小版で再解析
+      await DB.put("meals", Object.assign(upd, res));
+      CUR_DATE = upd.date; await renderDay(); toast("メモを反映しました");
+    }catch(e){
+      $("#esave").disabled=false; $("#esave").textContent="保存して再解析"; toast(e.message,4200);
+    }
+  };
+  $("#edel").onclick = async ()=>{
+    if(!confirm("この記録を削除します。元に戻せません。")) return;
+    await DB.del("meals", id); await renderDay(); toast("削除しました");
+  };
+}
+
+async function runAnalysis(id){
+  const m = await DB.get("meals", id);
+  if(!m.thumb){ toast("画像がありません"); return; }
+  toast("解析しています…", 60000);
+  try{
+    const res = await analyzeMeal(m, m.thumb);
+    await DB.put("meals", Object.assign(m,res,{error:null}));
+    toast("解析しました");
+  }catch(e){
+    await DB.put("meals", Object.assign(m,{status:"error",error:e.message}));
+    toast(e.message,4200);
+  }
+  await renderDay();
+}
+
+/* ---------- 分析 ---------- */
+function periodOf(mode, offset){
+  const now = new Date();
+  if(mode==="week"){
+    const base = new Date(now); base.setDate(now.getDate()+offset*7);
+    const {year,week} = isoWeek(ymd(base));
+    const days = weekRange(year,week);
+    return {id:`W-${year}-${pad(week)}`, label:`${year}年 第${week}週`, sub:`${jpDate(days[0])}〜${jpDate(days[6])}`, days, kind:"week"};
+  }
+  if(mode==="month"){
+    const d = new Date(now.getFullYear(), now.getMonth()+offset, 1);
+    const y=d.getFullYear(), m=d.getMonth();
+    const days=[]; const last=new Date(y,m+1,0).getDate();
+    for(let i=1;i<=last;i++) days.push(`${y}-${pad(m+1)}-${pad(i)}`);
+    return {id:`M-${y}-${pad(m+1)}`, label:`${y}年${m+1}月`, sub:"1か月の傾向", days, kind:"month"};
+  }
+  const end = new Date(now.getFullYear(), now.getMonth()+1+offset*12, 0);
+  const start = new Date(end.getFullYear(), end.getMonth()-11, 1);
+  const days=[]; const cur=new Date(start);
+  while(cur<=end){ days.push(ymd(cur)); cur.setDate(cur.getDate()+1); }
+  return {id:`Y-${end.getFullYear()}-${pad(end.getMonth()+1)}`,
+          label:`直近12か月`, sub:`${start.getFullYear()}年${start.getMonth()+1}月〜${end.getFullYear()}年${end.getMonth()+1}月`,
+          days, kind:"long"};
+}
+
+function sparkline(vals, target){
+  if(!vals.length) return "";
+  const max = Math.max(target*1.3, ...vals) || 1;
+  const w=100, h=44, step = vals.length>1 ? w/(vals.length-1) : 0;
+  const pts = vals.map((v,i)=>`${(i*step).toFixed(2)},${(h - (v/max)*h*0.92 - 2).toFixed(2)}`).join(" ");
+  const ty = (h - (target/max)*h*0.92 - 2).toFixed(2);
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+    <line x1="0" y1="${ty}" x2="${w}" y2="${ty}" stroke="#D3D8CF" stroke-width="0.8" stroke-dasharray="2 2"/>
+    <polyline points="${pts}" fill="none" stroke="#3D6B4E" stroke-width="1.4" vector-effect="non-scaling-stroke"/>
+  </svg>`;
+}
+
+async function viewReport(){
+  const p = periodOf(S.repMode, S.repOffset);
+  $("#hbar").innerHTML = `<h1>分析</h1><div class="sub">${esc(p.sub)}</div>`;
+  $("#main").innerHTML = `
+    <div class="seg">
+      <button data-m="week"  class="${S.repMode==="week"?"on":""}">週</button>
+      <button data-m="month" class="${S.repMode==="month"?"on":""}">月</button>
+      <button data-m="long"  class="${S.repMode==="long"?"on":""}">長期</button>
+    </div>
+    <div class="row" style="justify-content:space-between;margin:2px 0 4px">
+      <button class="navbtn" id="rp">‹</button>
+      <div class="num" style="font-weight:600">${esc(p.label)}</div>
+      <button class="navbtn" id="rn" ${S.repOffset>=0?"disabled style=opacity:.35":""}>›</button>
+    </div>
+    <div id="repBody"><div class="empty">集計しています…</div></div>`;
+
+  document.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>{ S.repMode=b.dataset.m; S.repOffset=0; render(); });
+  $("#rp").onclick=()=>{ S.repOffset--; render(); };
+  $("#rn").onclick=()=>{ if(S.repOffset<0){ S.repOffset++; render(); } };
+
+  const totals = await dailyTotals(p.days);
+  const body = $("#repBody");
+  if(!totals.length){
+    body.innerHTML = `<div class="empty">この期間の記録がありません。<br>記録タブから食事を追加してください。</div>`;
+    return;
+  }
+
+  const tg = SET.target;
+  const avg = f => Math.round(totals.reduce((s,d)=>s+(d[f]||0),0)/totals.length*10)/10;
+  const models = [...new Set(totals.flatMap(()=>[]))];
+
+  const charts = `
+    <div class="card">
+      <div class="tot" style="margin-bottom:6px">
+        <span>記録 <b class="num">${totals.length}</b> 日</span>
+        <span>1日平均 <b class="num">${avg("kcal")}</b> kcal</span>
+        <span>食塩 <b class="num">${avg("salt_g")}</b> g</span>
+        <span>野菜 <b class="num">${avg("veg_g")}</b> g</span>
+      </div>
+      <div class="sparkhead"><span>エネルギー</span><span class="num">目安 ${tg.kcal} kcal</span></div>
+      ${sparkline(totals.map(d=>d.kcal), tg.kcal)}
+      <div class="sparkhead"><span>食塩</span><span class="num">目安 ${tg.salt_g} g</span></div>
+      ${sparkline(totals.map(d=>d.salt_g), tg.salt_g)}
+      <div class="sparkhead"><span>野菜</span><span class="num">目安 ${tg.veg_g} g</span></div>
+      ${sparkline(totals.map(d=>d.veg_g), tg.veg_g)}
+    </div>`;
+
+  const cached = await DB.get("reports", p.id);
+  const hash = totals.map(d=>`${d.date}:${d.meals}:${Math.round(d.kcal)}`).join("|");
+  const stale = cached && cached.hash !== hash;
+
+  body.innerHTML = charts + `<div id="repText"></div>`;
+  const rt = $("#repText");
+
+  const paint = (rec, isStale)=>{
+    rt.innerHTML = `
+      <div class="card">
+        <div class="rep">${mdToHtml(rec.text)}</div>
+        <p class="muted" style="margin-top:14px;border-top:1px solid var(--line2);padding-top:10px">
+          ${esc(rec.model)} / ${new Date(rec.at).toLocaleString("ja-JP")} に生成
+        </p>
+        ${isStale?`<p class="muted" style="color:var(--warn)">この期間の記録が更新されています。</p>`:""}
+        <button class="btn ghost small" id="regen" style="margin-top:8px">レポートを作り直す</button>
+      </div>`;
+    $("#regen").onclick = ()=>generate(true);
+  };
+
+  const generate = async (force)=>{
+    if(!SET.apiKey){
+      rt.innerHTML = `<div class="empty">レポートを作るにはAPIキーが必要です。<br>設定タブで登録してください。</div>`;
+      return;
+    }
+    rt.innerHTML = `<div class="empty">レポートを作成しています…<br><span class="muted">30秒ほどかかります</span></div>`;
+    try{
+      const text = await buildReport(p, totals);
+      const rec = {id:p.id, kind:p.kind, text, hash, model:SET.reportModel, at:Date.now()};
+      await DB.put("reports", rec);
+      paint(rec,false);
+    }catch(e){
+      rt.innerHTML = `<div class="card"><p>${esc(e.message)}</p>
+        <button class="btn ghost small" id="regen">もう一度試す</button></div>`;
+      $("#regen").onclick=()=>generate(true);
+    }
+  };
+
+  if(cached && !stale) paint(cached,false);
+  else if(cached && stale) paint(cached,true);
+  else generate(false);   // 未生成のときだけ自動生成
+}
+
+async function buildReport(p, totals){
+  const health = (await DB.all("health")).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+  const payload = {
+    期間: p.sub, 種別: p.kind,
+    目安: SET.target,
+    日別集計: totals.map(d=>{
+      const o={日付:d.date, 食事数:d.meals};
+      FIELDS.forEach(f=>o[f]=Math.round((d[f]||0)*10)/10);
+      if(d.notes) o.メモ=d.notes;
+      return o;
+    }),
+    健診: health.map(h=>({項目:h.name, 値:h.value, 単位:h.unit, 基準:h.ref||null, 測定日:h.date}))
+  };
+
+  /* 階層要約: 月次は週次の、長期は月次のキャッシュを土台にする */
+  if(p.kind!=="week"){
+    const reports = await DB.all("reports");
+    const child = p.kind==="month" ? "week" : "month";
+    const inRange = reports.filter(r=>r.kind===child).sort((a,b)=>a.id.localeCompare(b.id)).slice(-13);
+    if(inRange.length) payload.既存の下位レポート = inRange.map(r=>({期間:r.id, 要約:r.text.slice(0,1400)}));
+  }
+
+  /* 解析に使ったモデルの変化を明示する */
+  const meals = await DB.all("meals");
+  const inP = meals.filter(m=>p.days.includes(m.date) && m.status==="done");
+  const modelSpans = {};
+  inP.forEach(m=>{
+    const k = `${m.model} / prompt v${m.prompt_version}`;
+    if(!modelSpans[k]) modelSpans[k] = {最初:m.date, 最後:m.date, 件数:0};
+    modelSpans[k].件数++;
+    if(m.date<modelSpans[k].最初) modelSpans[k].最初=m.date;
+    if(m.date>modelSpans[k].最後) modelSpans[k].最後=m.date;
+  });
+  payload.解析モデル = modelSpans;
+
+  const system = `あなたは管理栄養士として、利用者本人だけが読む食事レポートを日本語で書きます。
+
+前提:
+- 数値は写真からの推定値で、2〜3割の誤差を含みます。絶対値を断定せず、傾向の変化として扱ってください。
+- 健診データが与えられている場合は、その項目に関係の深い食事指標（食塩、飽和脂肪、食物繊維、野菜量、アルコールなど）と結びつけて述べてください。
+- 解析モデルが期間内で変わっている場合は、数値の段差がモデル変更に由来する可能性を必ず注記してください。
+- 診断はしません。受診や治療の判断は医師に相談するよう最後に一文添えてください。
+- 極端な制限や短期間の減量をすすめないでください。続けられる小さな調整を提案します。
+
+形式（Markdown、見出しは## を使う）:
+## 傾向
+3〜5行。数値の裏づけをつけて。
+## 気になる点
+2〜4項目の箇条書き。
+## 次の一手
+具体的な行動を3つ。「何を」「どのくらい」「いつ」まで書く。
+## 補足
+データの偏りやモデル変更など、読むときの注意があれば。なければ省略。`;
+
+  return await callClaude({
+    model: SET.reportModel, max_tokens: 2200, system,
+    content:[{type:"text", text:"次のデータからレポートを書いてください。\n\n"+JSON.stringify(payload,null,1)}]
+  });
+}
+
+function mdToHtml(md){
+  const lines = String(md).split("\n");
+  let html="", inUl=false;
+  const inline = s => esc(s).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");
+  for(let raw of lines){
+    const l = raw.trim();
+    if(/^#{2,3}\s/.test(l)){ if(inUl){html+="</ul>";inUl=false;} html+=`<h3>${inline(l.replace(/^#{2,3}\s/,""))}</h3>`; continue; }
+    if(/^[-*・]\s?/.test(l)){ if(!inUl){html+="<ul>";inUl=true;} html+=`<li>${inline(l.replace(/^[-*・]\s?/,""))}</li>`; continue; }
+    if(!l){ if(inUl){html+="</ul>";inUl=false;} continue; }
+    if(inUl){html+="</ul>";inUl=false;}
+    html+=`<p>${inline(l)}</p>`;
+  }
+  if(inUl) html+="</ul>";
+  return html;
+}
+
+/* ---------- 健診 ---------- */
+async function viewHealth(){
+  $("#hbar").innerHTML = `<h1>健診</h1><div class="sub">必要な項目だけ登録</div>`;
+  const rows = (await DB.all("health")).sort((a,b)=>(b.date||"").localeCompare(a.date||"") || a.name.localeCompare(b.name));
+  const byDate = {};
+  rows.forEach(r=>{ (byDate[r.date]=byDate[r.date]||[]).push(r); });
+
+  const groups = Object.keys(byDate).sort().reverse().map(d=>`
+    <div class="card">
+      <div class="muted num" style="margin-bottom:4px">${esc(d)}</div>
+      ${byDate[d].map(h=>`
+        <div class="hitem">
+          <div class="n">${esc(h.name)}${h.ref?`<span class="u"> 基準 ${esc(h.ref)}</span>`:""}</div>
+          <div class="v num">${esc(h.value)}</div>
+          <div class="u">${esc(h.unit||"")}</div>
+          <button class="del" data-del="${h.id}" aria-label="削除">×</button>
+        </div>`).join("")}
+    </div>`).join("");
+
+  $("#main").innerHTML = `
+    ${rows.length ? groups : `<div class="empty">まだ項目がありません。<br>気になる検査値だけ登録すれば十分です。</div>`}
+    <div class="card">
+      <h3 style="font-size:15px">項目を追加</h3>
+      <label class="f">項目名</label>
+      <input type="text" id="hn" list="hsug" placeholder="例：LDLコレステロール">
+      <datalist id="hsug">
+        <option value="HbA1c"><option value="空腹時血糖"><option value="LDLコレステロール">
+        <option value="HDLコレステロール"><option value="中性脂肪"><option value="γ-GTP">
+        <option value="AST(GOT)"><option value="ALT(GPT)"><option value="尿酸">
+        <option value="収縮期血圧"><option value="拡張期血圧"><option value="eGFR">
+        <option value="クレアチニン"><option value="体重"><option value="BMI"><option value="腹囲">
+      </datalist>
+      <div class="row" style="gap:8px">
+        <div style="flex:1"><label class="f">値</label><input type="number" id="hv" step="any" inputmode="decimal"></div>
+        <div style="flex:1"><label class="f">単位</label><input type="text" id="hu" placeholder="mg/dL"></div>
+      </div>
+      <div class="row" style="gap:8px">
+        <div style="flex:1"><label class="f">基準値（任意）</label><input type="text" id="hr" placeholder="120未満"></div>
+        <div style="flex:1"><label class="f">測定日</label><input type="date" id="hd" value="${todayStr()}"></div>
+      </div>
+      <button class="btn" id="hadd" style="margin-top:14px">追加する</button>
+    </div>
+    <p class="muted" style="margin:0 2px">登録した値は分析タブのレポート作成時にだけAPIへ送られます。端末外に保存されることはありません。</p>`;
+
+  $("#hadd").onclick = async ()=>{
+    const name=$("#hn").value.trim(), value=$("#hv").value.trim();
+    if(!name||value===""){ toast("項目名と値を入れてください"); return; }
+    await DB.put("health",{id:uid(),name,value:Number(value),unit:$("#hu").value.trim(),ref:$("#hr").value.trim(),date:$("#hd").value||todayStr()});
+    toast("追加しました"); render();
+  };
+  document.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{
+    await DB.del("health", b.dataset.del); render();
+  });
+}
+
+/* ---------- 設定 ---------- */
+async function viewSettings(){
+  $("#hbar").innerHTML = `<h1>設定</h1>`;
+  let est = "";
+  if(navigator.storage?.estimate){
+    const {usage} = await navigator.storage.estimate();
+    est = `使用中 ${(usage/1048576).toFixed(1)} MB`;
+  }
+  const persisted = navigator.storage?.persisted ? await navigator.storage.persisted() : false;
+  const tg = SET.target;
+
+  $("#main").innerHTML = `
+    <div class="card">
+      <h3 style="font-size:15px">Claude API</h3>
+      <label class="f">APIキー（この端末にだけ保存されます）</label>
+      <input type="password" id="sk" value="${esc(SET.apiKey||"")}" placeholder="sk-ant-..." autocomplete="off">
+      <label class="f">食事の写真解析に使うモデル</label>
+      <input type="text" id="sm" value="${esc(SET.mealModel)}">
+      <label class="f">レポート作成に使うモデル</label>
+      <input type="text" id="sr" value="${esc(SET.reportModel)}">
+      <p class="muted" style="margin-top:8px">新しいモデルが出たらここを書き換えるだけです。各記録には解析に使ったモデル名が残るので、あとから数値の段差の原因を判別できます。</p>
+      <button class="btn" id="ssave" style="margin-top:12px">保存する</button>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size:15px">1日の目安</h3>
+      <div class="row" style="gap:8px">
+        <div style="flex:1"><label class="f">エネルギー kcal</label><input type="number" id="tk" value="${tg.kcal}"></div>
+        <div style="flex:1"><label class="f">食塩 g</label><input type="number" id="ts" step="0.1" value="${tg.salt_g}"></div>
+      </div>
+      <div class="row" style="gap:8px">
+        <div style="flex:1"><label class="f">野菜 g</label><input type="number" id="tv" value="${tg.veg_g}"></div>
+        <div style="flex:1"><label class="f">食物繊維 g</label><input type="number" id="tf" value="${tg.fiber_g}"></div>
+      </div>
+      <button class="btn ghost small" id="tsave" style="margin-top:12px">目安を更新</button>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size:15px">バックアップ</h3>
+      <p class="muted">記録と健診データをJSONで書き出します。写真は含みません（原本は写真アプリに残ります）。月に一度、ファイルアプリかiCloud Driveに保存しておくと安全です。</p>
+      <div class="row" style="gap:8px;margin-top:10px">
+        <button class="btn ghost small" id="exp">書き出す</button>
+        <button class="btn ghost small" id="imp">読み込む</button>
+      </div>
+      <p class="muted" style="margin-top:12px">${esc(est)}${persisted?" ・ 永続化済み":""}</p>
+      ${!persisted?`<button class="btn ghost small" id="persist" style="margin-top:6px">保存領域の永続化を要求</button>`:""}
+    </div>
+    <input type="file" id="impf" accept="application/json" class="hide">
+    <p class="muted" style="margin:0 2px 20px">このアプリのコードには個人データが一切含まれていません。写真・健診値・APIキーはすべて端末内のIndexedDBにあります。</p>`;
+
+  $("#ssave").onclick = async ()=>{
+    await saveSetting("apiKey", $("#sk").value.trim());
+    await saveSetting("mealModel", $("#sm").value.trim()||DEFAULTS.mealModel);
+    await saveSetting("reportModel", $("#sr").value.trim()||DEFAULTS.reportModel);
+    toast("保存しました");
+  };
+  $("#tsave").onclick = async ()=>{
+    await saveSetting("target",{
+      kcal:+$("#tk").value||DEFAULTS.target.kcal,
+      salt_g:+$("#ts").value||DEFAULTS.target.salt_g,
+      veg_g:+$("#tv").value||DEFAULTS.target.veg_g,
+      fiber_g:+$("#tf").value||DEFAULTS.target.fiber_g,
+      protein_g:DEFAULTS.target.protein_g
+    });
+    toast("目安を更新しました");
+  };
+  const persistBtn = $("#persist");
+  if(persistBtn) persistBtn.onclick = async ()=>{
+    const ok = await navigator.storage.persist();
+    toast(ok?"永続化されました":"許可されませんでした。定期的な書き出しをおすすめします。",3600);
+    render();
+  };
+
+  $("#exp").onclick = async ()=>{
+    const meals = (await DB.all("meals")).map(m=>{ const {thumb,...rest}=m; return rest; });
+    const data = {version:1, exportedAt:new Date().toISOString(), meals,
+                  health:await DB.all("health"), reports:await DB.all("reports"),
+                  target:SET.target, mealModel:SET.mealModel, reportModel:SET.reportModel};
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data,null,1)],{type:"application/json"}));
+    const a = document.createElement("a");
+    a.href=url; a.download=`meallog-${todayStr()}.json`; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
+  };
+  $("#imp").onclick = ()=>$("#impf").click();
+  $("#impf").onchange = async ()=>{
+    const f = $("#impf").files[0]; if(!f) return;
+    try{
+      const d = JSON.parse(await f.text());
+      for(const m of d.meals||[])   { if(!(await DB.get("meals",m.id)))  await DB.put("meals",m); }
+      for(const h of d.health||[])  { if(!(await DB.get("health",h.id))) await DB.put("health",h); }
+      for(const r of d.reports||[]) { await DB.put("reports",r); }
+      if(d.target) await saveSetting("target",d.target);
+      toast("読み込みました（写真は復元されません）",3600);
+      render();
+    }catch(e){ toast("ファイルを読めませんでした"); }
+  };
+}
+
+/* ---------- 起動 ---------- */
+(async ()=>{
+  await loadSettings();
+  if(navigator.storage?.persist && !(await navigator.storage.persisted())) navigator.storage.persist();
+  render();
+})();
+</script>
+</body>
+</html>
