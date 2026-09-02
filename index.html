@@ -313,20 +313,21 @@ function weekRange(y,w){
 }
 
 /* ---------- 画像 ---------- */
-async function resizeToBlob(file,max,q=0.82){
-  const bmp = await createImageBitmap(file);
+/* 縮小して data URL 文字列で返す。
+   Blob を IndexedDB に保存すると iOS Safari で読み出せないことがあるため、文字列で保持する。 */
+async function resizeToDataURL(file,max,q=0.82){
+  let bmp;
+  try{ bmp = await createImageBitmap(file); }
+  catch(e){ throw new Error("この画像を読み込めませんでした（HEIC形式の可能性があります）"); }
   const sc  = Math.min(1, max/Math.max(bmp.width,bmp.height));
   const w = Math.max(1,Math.round(bmp.width*sc)), h = Math.max(1,Math.round(bmp.height*sc));
   const c = document.createElement("canvas"); c.width=w; c.height=h;
   c.getContext("2d").drawImage(bmp,0,0,w,h);
   if(bmp.close) bmp.close();
-  return await new Promise(r=>c.toBlob(r,"image/jpeg",q));
+  const url = c.toDataURL("image/jpeg",q);
+  if(!url || url.length < 200) throw new Error("画像の変換に失敗しました");
+  return url;
 }
-const blobToB64 = b=>new Promise((res,rej)=>{
-  const fr=new FileReader();
-  fr.onload=()=>res(String(fr.result).split(",")[1]);
-  fr.onerror=rej; fr.readAsDataURL(b);
-});
 
 /* 撮影日時を EXIF から取得（取れなければファイル更新日 → 現在時刻） */
 async function exifDateTime(file){
@@ -374,16 +375,19 @@ async function exifDateTime(file){
 async function callClaude({model,max_tokens,system,content}){
   const key = SET.apiKey;
   if(!key) throw new Error("APIキーが未設定です。設定タブで登録してください。");
+  const headers = {
+    "content-type":"application/json",
+    "x-api-key":key,
+    "anthropic-version":"2023-06-01",
+    "anthropic-dangerous-direct-browser-access":"true"
+  };
+  /* ワークスペースに紐づいていないキー（personal key など）はワークスペースIDが要る */
+  if(SET.workspaceId) headers["anthropic-workspace-id"] = SET.workspaceId;
   let res;
   try{
     res = await fetch("https://api.anthropic.com/v1/messages",{
       method:"POST",
-      headers:{
-        "content-type":"application/json",
-        "x-api-key":key,
-        "anthropic-version":"2023-06-01",
-        "anthropic-dangerous-direct-browser-access":"true"
-      },
+      headers,
       body: JSON.stringify({model,max_tokens,system,messages:[{role:"user",content}]})
     });
   }catch(e){
@@ -394,6 +398,8 @@ async function callClaude({model,max_tokens,system,content}){
     if(res.status===401) throw new Error("APIキーが受け付けられませんでした。設定で確認してください。");
     if(res.status===404) throw new Error(`モデル「${model}」が使えません。設定でモデルIDを更新してください。`);
     if(res.status===429) throw new Error("レート上限に達しました。少し待って再試行してください。");
+    if(res.status===400 && /workspace/i.test(body))
+      throw new Error("このキーはワークスペースIDが必要です。設定でワークスペースIDを入れるか、ワークスペースを指定したキーを作り直してください。");
     throw new Error(`APIエラー ${res.status}: ${body.slice(0,140)}`);
   }
   const data = await res.json();
@@ -420,8 +426,8 @@ const MEAL_SYSTEM = `あなたは管理栄養士です。食事の写真から�
  "estimate":{"kcal":数値,"protein_g":数値,"fat_g":数値,"carb_g":数値,"salt_g":数値,"fiber_g":数値,"veg_g":数値},
  "assumptions":"文字列","confidence":"low|medium|high"}`;
 
-async function analyzeMeal(rec, blob){
-  const b64 = await blobToB64(blob);
+async function analyzeMeal(rec, dataUrl){
+  const b64 = String(dataUrl).split(",")[1];
   const note = (rec.note||"").trim();
   const text = `この食事の写真を推定してください。${note ? `\n\n利用者のメモ: ${note}` : ""}`;
   const out = await callClaude({
@@ -612,7 +618,7 @@ async function renderDay(){
 
   meals.forEach(m=>{
     const img = $("#sheetInner").querySelector(`[data-thumb="${m.id}"]`);
-    if(img && m.thumb) img.src = URL.createObjectURL(m.thumb);
+    if(img && m.thumb) img.src = m.thumb;
   });
 }
 
@@ -629,7 +635,7 @@ function pickPhotos(date){
       try{
         const ex   = await exifDateTime(f);
         const when = ex || (()=>{ const d=new Date(f.lastModified||Date.now()); return {date:ymd(d),time:`${pad(d.getHours())}:${pad(d.getMinutes())}`}; })();
-        const thumb = await resizeToBlob(f, 512, 0.8);
+        const thumb = await resizeToDataURL(f, 512, 0.8);
         const rec = {
           id: uid(), date, time: when.time, ts: Date.now(),
           note:"", thumb, items:[], estimate:{}, assumptions:"", confidence:null,
@@ -643,7 +649,7 @@ function pickPhotos(date){
     toast("解析しています…", 60000);
     for(const {id,file} of ids){
       try{
-        const big = await resizeToBlob(file, 1024, 0.85);
+        const big = await resizeToDataURL(file, 1024, 0.85);
         const rec = await DB.get("meals", id);
         const res = await analyzeMeal(rec, big);   // 送信後、1024px版は破棄（保存しない）
         await DB.put("meals", Object.assign(rec, res));
@@ -682,7 +688,7 @@ async function editMeal(id){
       ${m.assumptions?`<p class="muted" style="margin-top:14px">推定の前提: ${esc(m.assumptions)}</p>`:""}
       ${m.model?`<p class="muted">解析: ${esc(m.model)} / prompt v${m.prompt_version}</p>`:""}
     </div>`;
-  if(m.thumb) $("#ev").src = URL.createObjectURL(m.thumb);
+  if(m.thumb) $("#ev").src = m.thumb;
   inner.querySelector("[data-back]").onclick = renderDay;
 
   const collect = ()=>({ time:$("#et").value, date:$("#ed").value, note:$("#en").value.trim() });
@@ -1001,6 +1007,8 @@ async function viewSettings(){
       <input type="text" id="sm" value="${esc(SET.mealModel)}">
       <label class="f">レポート作成に使うモデル</label>
       <input type="text" id="sr" value="${esc(SET.reportModel)}">
+      <label class="f">ワークスペースID（空欄でよい。キーがワークスペースに紐づいていない場合だけ必要）</label>
+      <input type="text" id="sw" value="${esc(SET.workspaceId||"")}" placeholder="wrkspc_..." autocomplete="off">
       <p class="muted" style="margin-top:8px">新しいモデルが出たらここを書き換えるだけです。各記録には解析に使ったモデル名が残るので、あとから数値の段差の原因を判別できます。</p>
       <button class="btn" id="ssave" style="margin-top:12px">保存する</button>
     </div>
@@ -1035,6 +1043,7 @@ async function viewSettings(){
     await saveSetting("apiKey", $("#sk").value.trim());
     await saveSetting("mealModel", $("#sm").value.trim()||DEFAULTS.mealModel);
     await saveSetting("reportModel", $("#sr").value.trim()||DEFAULTS.reportModel);
+    await saveSetting("workspaceId", $("#sw").value.trim());
     toast("保存しました");
   };
   $("#tsave").onclick = async ()=>{
